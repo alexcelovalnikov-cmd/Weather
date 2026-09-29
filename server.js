@@ -13,11 +13,16 @@ const cfg = {
   cacheTtlMs: Number(process.env.CACHE_TTL_MS || 300000),
   clientId: process.env.YANDEX_CLIENT_ID || '',
   clientSecret: process.env.YANDEX_CLIENT_SECRET || '',
-  tokenSecret: process.env.TOKEN_SECRET || ''
+  tokenSecret: process.env.TOKEN_SECRET || '',
+  linkPassword: process.env.YANDEX_LINK_PASSWORD || '',
+  redirectUri: process.env.YANDEX_REDIRECT_URI || 'https://social.yandex.net/broker/redirect',
+  scope: process.env.YANDEX_SCOPE || 'weather:read'
 };
 
 if (!cfg.owmKey) throw new Error('OWM_API_KEY is required');
 if (!cfg.tokenSecret) throw new Error('TOKEN_SECRET is required');
+if (!cfg.clientId || !cfg.clientSecret) throw new Error('YANDEX_CLIENT_ID and YANDEX_CLIENT_SECRET are required');
+if (!cfg.linkPassword) throw new Error('YANDEX_LINK_PASSWORD is required');
 
 const authCodes = new Map();
 let weatherCache = { at: 0, value: null };
@@ -48,13 +53,31 @@ function verifyToken(token, expectedType) {
 
 function sendJson(res, status, obj) {
   const data = JSON.stringify(obj);
-  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Content-Length': Buffer.byteLength(data) });
+  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Content-Length': Buffer.byteLength(data), 'Cache-Control': 'no-store' });
   res.end(data);
 }
 
 function sendText(res, status, text) {
-  res.writeHead(status, { 'Content-Type': 'text/plain; charset=utf-8' });
+  res.writeHead(status, {
+    'Content-Type': 'text/plain; charset=utf-8',
+    'Cache-Control': 'no-store'
+  });
   res.end(text);
+}
+
+function sendHtml(res, status, html) {
+  res.writeHead(status, {
+    'Content-Type': 'text/html; charset=utf-8',
+    'Cache-Control': 'no-store',
+    'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+  });
+  res.end(html);
+}
+
+function safeEqualText(a, b) {
+  const aa = Buffer.from(String(a || ''));
+  const bb = Buffer.from(String(b || ''));
+  return aa.length === bb.length && crypto.timingSafeEqual(aa, bb);
 }
 
 async function readBody(req) {
@@ -67,7 +90,10 @@ async function readBody(req) {
 }
 
 function reqId(req) {
-  return req.headers['x-request-id'] || crypto.randomUUID();
+  if (!req._weatherRequestId) {
+    req._weatherRequestId = req.headers['x-request-id'] || crypto.randomUUID();
+  }
+  return req._weatherRequestId;
 }
 
 function bearerPayload(req) {
@@ -145,19 +171,76 @@ function deviceDescription() {
   };
 }
 
-async function handleAuthorize(url, res) {
-  const responseType = url.searchParams.get('response_type');
-  const clientId = url.searchParams.get('client_id');
-  const redirectUri = url.searchParams.get('redirect_uri');
-  const state = url.searchParams.get('state') || '';
-  if (responseType !== 'code' || clientId !== cfg.clientId || !redirectUri) {
+async function handleAuthorize(req, url, res) {
+  const source = req.method === 'POST'
+    ? new URLSearchParams(await readBody(req))
+    : url.searchParams;
+
+  const responseType = source.get('response_type');
+  const clientId = source.get('client_id');
+  const redirectUri = source.get('redirect_uri');
+  const state = source.get('state') || '';
+  const scope = source.get('scope') || cfg.scope;
+
+  if (
+    responseType !== 'code' ||
+    clientId !== cfg.clientId ||
+    redirectUri !== cfg.redirectUri ||
+    scope !== cfg.scope
+  ) {
     return sendText(res, 400, 'Invalid OAuth request');
   }
+
+  if (req.method === 'GET') {
+    const esc = (value) => String(value).replace(/[&<>"']/g, (ch) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[ch]);
+    return sendHtml(res, 200, `<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Weather Bridge</title>
+<style>
+body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:420px;margin:64px auto;padding:0 20px;color:#111}
+h1{font-size:24px;margin-bottom:8px}p{color:#555;line-height:1.45}
+input,button{box-sizing:border-box;width:100%;font:inherit;padding:12px;border-radius:10px}
+input{border:1px solid #ccc;margin:12px 0}button{border:0;background:#111;color:#fff;cursor:pointer}
+</style>
+</head>
+<body>
+<h1>Подключить датчик «Улица»</h1>
+<p>Введите пароль Weather Bridge, чтобы разрешить Яндексу получать температуру.</p>
+<form method="post">
+<input type="hidden" name="response_type" value="${esc(responseType)}">
+<input type="hidden" name="client_id" value="${esc(clientId)}">
+<input type="hidden" name="redirect_uri" value="${esc(redirectUri)}">
+<input type="hidden" name="state" value="${esc(state)}">
+<input type="hidden" name="scope" value="${esc(scope)}">
+<input type="password" name="password" autocomplete="current-password" required autofocus>
+<button type="submit">Подключить к Яндексу</button>
+</form>
+</body>
+</html>`);
+  }
+
+  if (!safeEqualText(source.get('password'), cfg.linkPassword)) {
+    return sendText(res, 401, 'Invalid password');
+  }
+
   const code = crypto.randomBytes(24).toString('base64url');
-  authCodes.set(code, { clientId, redirectUri, exp: Date.now() + 5 * 60 * 1000 });
+  authCodes.set(code, {
+    clientId,
+    redirectUri,
+    scope,
+    exp: Date.now() + 5 * 60 * 1000
+  });
+
   const redirect = new URL(redirectUri);
   redirect.searchParams.set('code', code);
-  if (state) redirect.searchParams.set('state', state);
+  redirect.searchParams.set('state', state);
+  redirect.searchParams.set('client_id', clientId);
+  redirect.searchParams.set('scope', scope);
   res.writeHead(302, { Location: redirect.toString(), 'Cache-Control': 'no-store' });
   res.end();
 }
@@ -183,7 +266,12 @@ async function handleToken(req, res) {
       return sendJson(res, 400, { error: 'invalid_grant' });
     }
     authCodes.delete(code);
-    refreshToken = signToken({ type: 'refresh', sub: cfg.userId, exp: Math.floor(Date.now() / 1000) + 31536000 });
+    refreshToken = signToken({
+      type: 'refresh',
+      sub: cfg.userId,
+      scope: record.scope || cfg.scope,
+      exp: Math.floor(Date.now() / 1000) + 31536000
+    });
   } else if (grantType === 'refresh_token') {
     const p = verifyToken(refreshToken, 'refresh');
     if (!p || p.sub !== cfg.userId) return sendJson(res, 400, { error: 'invalid_grant' });
@@ -191,12 +279,20 @@ async function handleToken(req, res) {
     return sendJson(res, 400, { error: 'unsupported_grant_type' });
   }
 
-  const accessToken = signToken({ type: 'access', sub: cfg.userId, exp: Math.floor(Date.now() / 1000) + 3600 });
+  const refreshPayload = verifyToken(refreshToken, 'refresh');
+  const tokenScope = (refreshPayload && refreshPayload.scope) || cfg.scope;
+  const accessToken = signToken({
+    type: 'access',
+    sub: cfg.userId,
+    scope: tokenScope,
+    exp: Math.floor(Date.now() / 1000) + 3600
+  });
   return sendJson(res, 200, {
     token_type: 'bearer',
     expires_in: 3600,
     access_token: accessToken,
-    refresh_token: refreshToken
+    refresh_token: refreshToken,
+    scope: tokenScope
   });
 }
 
@@ -235,6 +331,14 @@ async function handleAction(req, res) {
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://' + (req.headers.host || 'localhost'));
+    if (url.pathname.startsWith('/v1.0/')) {
+      console.log(JSON.stringify({
+        time: new Date().toISOString(),
+        request_id: reqId(req),
+        method: req.method,
+        path: url.pathname
+      }));
+    }
     if (req.method === 'GET' && url.pathname === '/health') {
       return sendJson(res, 200, { ok: true, service: 'yandex-weather-bridge' });
     }
@@ -261,4 +365,3 @@ const server = http.createServer(async (req, res) => {
 server.listen(cfg.port, '0.0.0.0', () => {
   console.log('Yandex Weather Bridge listening on :' + cfg.port);
 });
-
