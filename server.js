@@ -342,7 +342,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/health') {
       return sendJson(res, 200, { ok: true, service: 'yandex-weather-bridge' });
     }
-    if (req.method === 'GET' && url.pathname === '/oauth/authorize') return handleAuthorize(url, res);
+    if ((req.method === 'GET' || req.method === 'POST') && url.pathname === '/oauth/authorize') return handleAuthorize(req, url, res);
     if (req.method === 'POST' && url.pathname === '/oauth/token') return handleToken(req, res);
     if (req.method === 'HEAD' && url.pathname === '/v1.0/') {
       res.writeHead(200);
