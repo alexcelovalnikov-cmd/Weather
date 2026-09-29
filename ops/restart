@@ -1,0 +1,11 @@
+#!/bin/sh
+set -eu
+. /opt/weather-bridge/bin/lib.sh
+lock_deploy
+
+VERSION="$(cat "$BASE/runtime/current-version")"
+WEATHER_IMAGE="weather-bridge:$VERSION"
+export WEATHER_IMAGE
+compose restart app
+wait_health
+printf "RESTART_OK %s\n" "$VERSION"

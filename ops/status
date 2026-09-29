@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+. /opt/weather-bridge/bin/lib.sh
+CURRENT="$(cat "$BASE/runtime/current-version" 2>/dev/null || echo none)"
+PREVIOUS="$(cat "$BASE/runtime/previous-version" 2>/dev/null || echo none)"
+printf "current=%s previous=%s\n" "$CURRENT" "$PREVIOUS"
+docker ps --filter name=weather-bridge-app --format "{{.Names}} {{.Status}} {{.Ports}}"
+curl -fsS "http://127.0.0.1:$BIND_PORT/health" || true
+printf "\n"

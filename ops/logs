@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+. /opt/weather-bridge/bin/lib.sh
+VERSION="$(cat "$BASE/runtime/current-version" 2>/dev/null || echo V2)"
+WEATHER_IMAGE="weather-bridge:$VERSION"
+export WEATHER_IMAGE
+TAIL="${1:-200}"
+compose logs --tail="$TAIL" app

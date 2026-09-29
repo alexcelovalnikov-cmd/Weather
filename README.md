@@ -1,7 +1,3 @@
-Pseudo-terminal will not be allocated because stdin is not a terminal.
-** WARNING: connection is not using a post-quantum key exchange algorithm.
-** This session may be vulnerable to "store now, decrypt later" attacks.
-** The server may need to be upgraded. See https://openssh.com/pq.html
 # Yandex Weather Bridge
 
 Private bridge: OpenWeather -> Yandex Smart Home virtual outdoor temperature sensor.

@@ -1,0 +1,22 @@
+#!/bin/sh
+set -eu
+. /opt/weather-bridge/bin/lib.sh
+lock_deploy
+
+VERSION="${1:-}"
+[ -n "$VERSION" ] || { echo "Usage: deploy Vn" >&2; exit 2; }
+require_release "$VERSION"
+ensure_image "$VERSION"
+
+CURRENT=""
+[ -f "$BASE/runtime/current-version" ] && CURRENT="$(cat "$BASE/runtime/current-version")"
+if [ -n "$CURRENT" ] && [ "$CURRENT" != "$VERSION" ]; then
+  printf "%s\n" "$CURRENT" > "$BASE/runtime/previous-version"
+fi
+
+printf "%s\n" "$VERSION" > "$BASE/runtime/current-version"
+WEATHER_IMAGE="weather-bridge:$VERSION"
+export WEATHER_IMAGE
+compose up -d --remove-orphans
+wait_health
+printf "DEPLOY_OK %s\n" "$VERSION"

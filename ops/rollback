@@ -1,0 +1,17 @@
+#!/bin/sh
+set -eu
+. /opt/weather-bridge/bin/lib.sh
+lock_deploy
+
+CURRENT="$(cat "$BASE/runtime/current-version")"
+TARGET="$(cat "$BASE/runtime/previous-version")"
+require_release "$TARGET"
+ensure_image "$TARGET"
+
+printf "%s\n" "$CURRENT" > "$BASE/runtime/previous-version"
+printf "%s\n" "$TARGET" > "$BASE/runtime/current-version"
+WEATHER_IMAGE="weather-bridge:$TARGET"
+export WEATHER_IMAGE
+compose up -d --remove-orphans
+wait_health
+printf "ROLLBACK_OK %s -> %s\n" "$CURRENT" "$TARGET"

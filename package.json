@@ -1,0 +1,13 @@
+{
+  "name": "yandex-weather-bridge",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Virtual outdoor temperature sensor for Yandex Smart Home",
+  "main": "server.js",
+  "scripts": {
+    "start": "node --env-file=.env server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
