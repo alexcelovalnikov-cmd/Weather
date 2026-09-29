@@ -32,3 +32,16 @@ Private bridge: OpenWeather -> Yandex Smart Home virtual outdoor temperature sen
 - GitHub: `alexcelovalnikov-cmd/Weather`
 
 The `weather` user has no write access to the other project directories. Root is emergency/host-level access only. Production does not depend on a Mac.
+
+
+## Yandex console settings
+
+- Endpoint URL: `https://139-100-225-90.sslip.io/yandex-weather/`
+- Authorization URL: `https://139-100-225-90.sslip.io/yandex-weather/oauth/authorize`
+- Token URL: `https://139-100-225-90.sslip.io/yandex-weather/oauth/token`
+- Refresh token URL: `https://139-100-225-90.sslip.io/yandex-weather/oauth/token`
+- Redirect URI accepted by the bridge: `https://social.yandex.net/broker/redirect`
+- Scope: `weather:read`
+- Access type: Private
+
+Client ID, client secret, and the linking password are stored only in `/opt/weather-bridge/secrets/.env`.
