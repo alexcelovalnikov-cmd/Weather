@@ -2,11 +2,15 @@
 set -eu
 
 BASE=/opt/weather-bridge
-DOCKER_HOST=unix:///run/user/1001/docker.sock
+UID_NUM="$(id -u)"
+XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$UID_NUM}"
+PATH="/home/weather/bin:/usr/local/bin:/usr/bin:/bin"
+DOCKER_HOST="unix://$XDG_RUNTIME_DIR/docker.sock"
 COMPOSE_FILE=$BASE/runtime/compose.production.yaml
 BIND_PORT=8789
 LOCK_FILE=$BASE/runtime/deploy.lock
-export DOCKER_HOST
+OPS_LOG=$BASE/logs/operations.log
+export XDG_RUNTIME_DIR PATH DOCKER_HOST
 
 lock_deploy() {
   exec 9>"$LOCK_FILE"
@@ -14,6 +18,10 @@ lock_deploy() {
     echo "DEPLOY_LOCKED: another Weather Bridge operation is running" >&2
     exit 75
   fi
+}
+
+log_event() {
+  printf "%s %s\n" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" >> "$OPS_LOG"
 }
 
 compose() {
