@@ -13,3 +13,4 @@ jobs:
         with:
           node-version: 24
       - run: node --check server.js
+      - run: node test/oauth-smoke.mjs
