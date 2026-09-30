@@ -42,7 +42,7 @@ async function main() {
 
   const form = await fetch(base + '/oauth/authorize?' + params);
   const html = await form.text();
-  if (form.status !== 200 || !html.includes('Подключить датчик')) {
+  if (form.status !== 200 || !html.includes('Подключить датчик') || !html.includes('action="./authorize"')) {
     throw new Error('authorization form failed');
   }
 
@@ -63,14 +63,14 @@ async function main() {
     body: good,
     redirect: 'manual'
   });
-  if (auth.status !== 302) throw new Error('authorization did not redirect');
+  if (auth.status !== 303) throw new Error('authorization did not redirect');
 
   const callback = new URL(auth.headers.get('location'));
   if (callback.origin !== 'https://social.yandex.net' ||
       callback.pathname !== '/broker/redirect' ||
       callback.searchParams.get('state') !== 'smoke-state' ||
-      callback.searchParams.get('client_id') !== env.YANDEX_CLIENT_ID ||
-      callback.searchParams.get('scope') !== env.YANDEX_SCOPE) {
+      callback.searchParams.has('client_id') ||
+      callback.searchParams.has('scope')) {
     throw new Error('callback parameters are invalid');
   }
 
