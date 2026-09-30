@@ -276,8 +276,6 @@ input{border:1px solid #ccc;margin:12px 0}button{border:0;background:#111;color:
   const redirect = new URL(redirectUri);
   redirect.searchParams.set('code', code);
   redirect.searchParams.set('state', state);
-  redirect.searchParams.set('client_id', clientId);
-  redirect.searchParams.set('scope', scope);
   console.log(JSON.stringify({ time: new Date().toISOString(), oauth: 'authorize_success', redirect_host: redirect.host }));
   return sendOAuthContinue(res, redirect.toString());
 }
