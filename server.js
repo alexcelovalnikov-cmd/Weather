@@ -23,7 +23,6 @@ const cfg = {
   reportIntervalMs: Number(process.env.REPORT_INTERVAL_MS || 300000)
 };
 
-if (!cfg.owmKey) throw new Error('OWM_API_KEY is required');
 if (!cfg.tokenSecret) throw new Error('TOKEN_SECRET is required');
 if (!cfg.clientId || !cfg.clientSecret) throw new Error('YANDEX_CLIENT_ID and YANDEX_CLIENT_SECRET are required');
 if (!cfg.linkPassword) throw new Error('YANDEX_LINK_PASSWORD is required');
@@ -138,22 +137,50 @@ function parseClientAuth(req, params) {
 
 async function getWeather() {
   if (weatherCache.value && Date.now() - weatherCache.at < cfg.cacheTtlMs) return weatherCache.value;
-  const u = new URL('https://api.openweathermap.org/data/2.5/weather');
-  u.searchParams.set('lat', cfg.lat);
-  u.searchParams.set('lon', cfg.lon);
-  u.searchParams.set('appid', cfg.owmKey);
-  u.searchParams.set('units', 'metric');
-  u.searchParams.set('lang', 'ru');
-  const r = await fetch(u);
-  if (!r.ok) throw new Error('OpenWeather HTTP ' + r.status);
-  const data = await r.json();
-  const value = {
-    temperature: Math.round(Number(data.main.temp) * 10) / 10,
-    name: data.name || '',
-    fetchedAt: new Date().toISOString()
-  };
-  weatherCache = { at: Date.now(), value };
-  return value;
+
+  try {
+    const u = new URL('https://api.open-meteo.com/v1/forecast');
+    u.searchParams.set('latitude', cfg.lat);
+    u.searchParams.set('longitude', cfg.lon);
+    u.searchParams.set('current', 'temperature_2m');
+    u.searchParams.set('timezone', 'Asia/Yekaterinburg');
+
+    const r = await fetch(u);
+    if (!r.ok) throw new Error('Open-Meteo HTTP ' + r.status);
+    const data = await r.json();
+    const temperature = Number(data?.current?.temperature_2m);
+    if (!Number.isFinite(temperature)) throw new Error('Open-Meteo temperature missing');
+
+    const value = {
+      temperature: Math.round(temperature * 10) / 10,
+      name: 'Yekaterinburg',
+      source: 'open-meteo',
+      fetchedAt: data?.current?.time || new Date().toISOString()
+    };
+    weatherCache = { at: Date.now(), value };
+    return value;
+  } catch (primaryError) {
+    if (!cfg.owmKey) throw primaryError;
+
+    const u = new URL('https://api.openweathermap.org/data/2.5/weather');
+    u.searchParams.set('lat', cfg.lat);
+    u.searchParams.set('lon', cfg.lon);
+    u.searchParams.set('appid', cfg.owmKey);
+    u.searchParams.set('units', 'metric');
+    u.searchParams.set('lang', 'ru');
+
+    const r = await fetch(u);
+    if (!r.ok) throw new Error('OpenWeather fallback HTTP ' + r.status);
+    const data = await r.json();
+    const value = {
+      temperature: Math.round(Number(data.main.temp) * 10) / 10,
+      name: data.name || '',
+      source: 'openweather-fallback',
+      fetchedAt: new Date().toISOString()
+    };
+    weatherCache = { at: Date.now(), value };
+    return value;
+  }
 }
 
 function dialogsApiUrl(pathname) {
@@ -279,7 +306,7 @@ function deviceDescription() {
   return {
     id: cfg.deviceId,
     name: cfg.deviceName,
-    description: 'Температура на улице из OpenWeather',
+    description: 'Температура на улице из Open-Meteo',
     room: 'Улица',
     type: 'devices.types.sensor.climate',
     capabilities: [],
@@ -294,7 +321,7 @@ function deviceDescription() {
     }],
     device_info: {
       manufacturer: 'Private Weather Bridge',
-      model: 'OpenWeather Outdoor Sensor',
+      model: 'Open-Meteo Outdoor Sensor',
       hw_version: 'virtual',
       sw_version: '1.0'
     }
