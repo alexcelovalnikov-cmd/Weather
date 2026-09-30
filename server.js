@@ -225,6 +225,7 @@ input{border:1px solid #ccc;margin:12px 0}button{border:0;background:#111;color:
   }
 
   if (!safeEqualText(source.get('password'), cfg.linkPassword)) {
+    console.log(JSON.stringify({ time: new Date().toISOString(), oauth: 'authorize_rejected', reason: 'invalid_password' }));
     return sendText(res, 401, 'Invalid password');
   }
 
@@ -239,6 +240,9 @@ input{border:1px solid #ccc;margin:12px 0}button{border:0;background:#111;color:
   const redirect = new URL(redirectUri);
   redirect.searchParams.set('code', code);
   redirect.searchParams.set('state', state);
+  redirect.searchParams.set('client_id', clientId);
+  redirect.searchParams.set('scope', scope);
+  console.log(JSON.stringify({ time: new Date().toISOString(), oauth: 'authorize_success', redirect_host: redirect.host }));
   res.writeHead(303, { Location: redirect.toString(), 'Cache-Control': 'no-store' });
   res.end();
 }
