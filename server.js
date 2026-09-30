@@ -265,8 +265,25 @@ async function copyCurrentLink(){
   redirect.searchParams.set('client_id', clientId);
   redirect.searchParams.set('scope', scope);
   console.log(JSON.stringify({ time: new Date().toISOString(), oauth: 'authorize_success', redirect_host: redirect.host }));
-  res.writeHead(303, { Location: redirect.toString(), 'Cache-Control': 'no-store' });
-  res.end();
+  const target = escHtml(redirect.toString());
+  return sendHtml(res, 200, `<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Weather Bridge</title>
+<style>
+body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:420px;margin:64px auto;padding:0 20px;color:#111}
+h1{font-size:24px;margin-bottom:8px}p{color:#555;line-height:1.45}
+a{display:block;box-sizing:border-box;width:100%;padding:14px;border-radius:10px;background:#111;color:#fff;text-align:center;text-decoration:none;margin-top:20px}
+</style>
+</head>
+<body>
+<h1>Пароль принят</h1>
+<p>Нажмите кнопку, чтобы завершить привязку аккаунта в Яндексе.</p>
+<a href="${target}">Продолжить в Яндекс</a>
+</body>
+</html>`);
 }
 
 async function handleToken(req, res) {
