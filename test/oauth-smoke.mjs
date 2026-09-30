@@ -63,14 +63,14 @@ async function main() {
     body: good,
     redirect: 'manual'
   });
-  if (auth.status !== 302) throw new Error('authorization did not redirect');
+  if (auth.status !== 303) throw new Error('authorization did not redirect');
 
   const callback = new URL(auth.headers.get('location'));
   if (callback.origin !== 'https://social.yandex.net' ||
       callback.pathname !== '/broker/redirect' ||
       callback.searchParams.get('state') !== 'smoke-state' ||
-      callback.searchParams.has('client_id') ||
-      callback.searchParams.has('scope')) {
+      callback.searchParams.get('client_id') !== env.YANDEX_CLIENT_ID ||
+      callback.searchParams.get('scope') !== env.YANDEX_SCOPE) {
     throw new Error('callback parameters are invalid');
   }
 
