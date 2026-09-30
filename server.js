@@ -74,6 +74,12 @@ function sendHtml(res, status, html) {
   res.end(html);
 }
 
+function escHtml(value) {
+  return String(value).replace(/[&<>"']/g, (ch) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[ch]);
+}
+
 function safeEqualText(a, b) {
   const aa = Buffer.from(String(a || ''));
   const bb = Buffer.from(String(b || ''));
