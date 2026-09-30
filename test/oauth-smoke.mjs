@@ -63,9 +63,14 @@ async function main() {
     body: good,
     redirect: 'manual'
   });
-  if (auth.status !== 303) throw new Error('authorization did not redirect');
+  if (auth.status !== 200) throw new Error('authorization continuation page failed');
+  const continuationHtml = await auth.text();
+  const href = continuationHtml.match(/href="([^"]+)"/)?.[1]?.replace(/&amp;/g, '&');
+  if (!href || !continuationHtml.includes('Продолжить в Яндекс')) {
+    throw new Error('authorization continuation link missing');
+  }
 
-  const callback = new URL(auth.headers.get('location'));
+  const callback = new URL(href);
   if (callback.origin !== 'https://social.yandex.net' ||
       callback.pathname !== '/broker/redirect' ||
       callback.searchParams.get('state') !== 'smoke-state' ||
