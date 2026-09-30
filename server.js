@@ -16,7 +16,11 @@ const cfg = {
   tokenSecret: process.env.TOKEN_SECRET || '',
   linkPassword: process.env.YANDEX_LINK_PASSWORD || '',
   redirectUri: process.env.YANDEX_REDIRECT_URI || 'https://social.yandex.net/broker/redirect',
-  scope: process.env.YANDEX_SCOPE || 'weather:read'
+  scope: process.env.YANDEX_SCOPE || 'weather:read',
+  dialogsSkillId: process.env.YANDEX_DIALOGS_SKILL_ID || '',
+  dialogsOAuthToken: process.env.YANDEX_DIALOGS_OAUTH_TOKEN || '',
+  dialogsApiBase: process.env.YANDEX_DIALOGS_API_BASE || 'https://dialogs.yandex.net',
+  reportIntervalMs: Number(process.env.REPORT_INTERVAL_MS || 300000)
 };
 
 if (!cfg.owmKey) throw new Error('OWM_API_KEY is required');
@@ -26,6 +30,7 @@ if (!cfg.linkPassword) throw new Error('YANDEX_LINK_PASSWORD is required');
 
 const authCodes = new Map();
 let weatherCache = { at: 0, value: null };
+let lastReportedTemperature = null;
 
 function b64url(input) {
   return Buffer.from(input).toString('base64url');
@@ -151,6 +156,125 @@ async function getWeather() {
   return value;
 }
 
+function dialogsApiUrl(pathname) {
+  const base = cfg.dialogsApiBase.replace(/\/$/, '');
+  return base + pathname;
+}
+
+async function notifyDiscovery() {
+  if (!cfg.dialogsSkillId || !cfg.dialogsOAuthToken) return { skipped: true };
+  const endpoint = dialogsApiUrl('/api/v1/skills/' + encodeURIComponent(cfg.dialogsSkillId) + '/callback/discovery');
+  const body = {
+    ts: Date.now() / 1000,
+    payload: { user_id: cfg.userId }
+  };
+  const r = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Authorization': 'OAuth ' + cfg.dialogsOAuthToken,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(body)
+  });
+  const text = await r.text();
+  if (r.status !== 202) throw new Error('Yandex discovery callback HTTP ' + r.status + ': ' + text.slice(0, 300));
+  let data = {};
+  try { data = JSON.parse(text); } catch {}
+  console.log(JSON.stringify({
+    time: new Date().toISOString(),
+    notification: 'discovery',
+    status: data.status || 'accepted',
+    request_id: data.request_id || null
+  }));
+  return { skipped: false, status: r.status };
+}
+
+async function reportWeatherState({ force = false } = {}) {
+  if (!cfg.dialogsSkillId || !cfg.dialogsOAuthToken) return { skipped: true };
+  const weather = await getWeather();
+  if (!force && lastReportedTemperature !== null && weather.temperature === lastReportedTemperature) {
+    return { skipped: true, unchanged: true, temperature: weather.temperature };
+  }
+
+  const endpoint = dialogsApiUrl('/api/v1/skills/' + encodeURIComponent(cfg.dialogsSkillId) + '/callback/state');
+  const body = {
+    ts: Date.now() / 1000,
+    payload: {
+      user_id: cfg.userId,
+      devices: [{
+        id: cfg.deviceId,
+        properties: [{
+          type: 'devices.properties.float',
+          state: {
+            instance: 'temperature',
+            value: weather.temperature
+          }
+        }]
+      }]
+    }
+  };
+
+  const r = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Authorization': 'OAuth ' + cfg.dialogsOAuthToken,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(body)
+  });
+  const text = await r.text();
+  if (r.status !== 202) throw new Error('Yandex state callback HTTP ' + r.status + ': ' + text.slice(0, 300));
+  let data = {};
+  try { data = JSON.parse(text); } catch {}
+  lastReportedTemperature = weather.temperature;
+  console.log(JSON.stringify({
+    time: new Date().toISOString(),
+    notification: 'state',
+    temperature: weather.temperature,
+    status: data.status || 'accepted',
+    request_id: data.request_id || null
+  }));
+  return { skipped: false, status: r.status, temperature: weather.temperature };
+}
+
+function startReporting() {
+  if (!cfg.dialogsSkillId || !cfg.dialogsOAuthToken) {
+    console.log(JSON.stringify({
+      time: new Date().toISOString(),
+      notification: 'disabled',
+      reason: 'YANDEX_DIALOGS_SKILL_ID or YANDEX_DIALOGS_OAUTH_TOKEN is missing'
+    }));
+    return;
+  }
+
+  const run = async () => {
+    try {
+      await reportWeatherState();
+    } catch (err) {
+      console.error(JSON.stringify({
+        time: new Date().toISOString(),
+        notification: 'state_error',
+        error: String(err && err.message || err)
+      }));
+    }
+  };
+
+  setTimeout(async () => {
+    try {
+      await notifyDiscovery();
+    } catch (err) {
+      console.error(JSON.stringify({
+        time: new Date().toISOString(),
+        notification: 'discovery_error',
+        error: String(err && err.message || err)
+      }));
+    }
+    await run();
+  }, 5000);
+
+  setInterval(run, Math.max(60000, cfg.reportIntervalMs));
+}
+
 function deviceDescription() {
   return {
     id: cfg.deviceId,
@@ -162,7 +286,7 @@ function deviceDescription() {
     properties: [{
       type: 'devices.properties.float',
       retrievable: true,
-      reportable: false,
+      reportable: true,
       parameters: {
         instance: 'temperature',
         unit: 'unit.temperature.celsius'
@@ -411,5 +535,6 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(cfg.port, '0.0.0.0', () => {
   console.log('Yandex Weather Bridge listening on :' + cfg.port);
+  startReporting();
 });
 
