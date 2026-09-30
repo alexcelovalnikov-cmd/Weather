@@ -211,7 +211,7 @@ input{border:1px solid #ccc;margin:12px 0}button{border:0;background:#111;color:
 <body>
 <h1>Подключить датчик «Улица»</h1>
 <p>Введите пароль Weather Bridge, чтобы разрешить Яндексу получать температуру.</p>
-<form method="post">
+<form method="post" action="./authorize">
 <input type="hidden" name="response_type" value="${esc(responseType)}">
 <input type="hidden" name="client_id" value="${esc(clientId)}">
 <input type="hidden" name="redirect_uri" value="${esc(redirectUri)}">
@@ -239,9 +239,7 @@ input{border:1px solid #ccc;margin:12px 0}button{border:0;background:#111;color:
   const redirect = new URL(redirectUri);
   redirect.searchParams.set('code', code);
   redirect.searchParams.set('state', state);
-  redirect.searchParams.set('client_id', clientId);
-  redirect.searchParams.set('scope', scope);
-  res.writeHead(302, { Location: redirect.toString(), 'Cache-Control': 'no-store' });
+  res.writeHead(303, { Location: redirect.toString(), 'Cache-Control': 'no-store' });
   res.end();
 }
 
@@ -331,7 +329,7 @@ async function handleAction(req, res) {
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://' + (req.headers.host || 'localhost'));
-    if (url.pathname.startsWith('/v1.0/')) {
+    if (url.pathname.startsWith('/v1.0/') || url.pathname.startsWith('/oauth/')) {
       console.log(JSON.stringify({
         time: new Date().toISOString(),
         request_id: reqId(req),
