@@ -74,42 +74,6 @@ function sendHtml(res, status, html) {
   res.end(html);
 }
 
-function escHtml(value) {
-  return String(value).replace(/[&<>"']/g, (ch) => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-  })[ch]);
-}
-
-function sendOAuthContinue(res, redirectUrl) {
-  const target = escHtml(redirectUrl);
-  const html = `<!doctype html>
-<html lang="ru">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta http-equiv="refresh" content="0;url=${target}">
-<title>Weather Bridge</title>
-<style>
-body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:420px;margin:64px auto;padding:0 20px;color:#111}
-h1{font-size:24px;margin-bottom:8px}p{color:#555;line-height:1.45}
-a{display:block;box-sizing:border-box;width:100%;padding:12px;border-radius:10px;background:#111;color:#fff;text-align:center;text-decoration:none;margin-top:20px}
-</style>
-</head>
-<body>
-<h1>Пароль принят</h1>
-<p>Возвращаемся в Яндекс. Если переход не произошёл автоматически, нажмите кнопку ниже.</p>
-<a href="${target}">Продолжить в Яндекс</a>
-</body>
-</html>`;
-  res.writeHead(200, {
-    'Content-Type': 'text/html; charset=utf-8',
-    'Content-Length': Buffer.byteLength(html),
-    'Cache-Control': 'no-store',
-    'Referrer-Policy': 'no-referrer'
-  });
-  res.end(html);
-}
-
 function safeEqualText(a, b) {
   const aa = Buffer.from(String(a || ''));
   const bb = Buffer.from(String(b || ''));
@@ -241,8 +205,7 @@ async function handleAuthorize(req, url, res) {
 body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:420px;margin:64px auto;padding:0 20px;color:#111}
 h1{font-size:24px;margin-bottom:8px}p{color:#555;line-height:1.45}
 input,button{box-sizing:border-box;width:100%;font:inherit;padding:12px;border-radius:10px}
-input{border:1px solid #ccc;margin:12px 0}button{border:0;background:#111;color:#fff;cursor:pointer}
-.tools{display:grid;gap:10px;margin-top:18px}.secondary{background:#f1f1f3;color:#111}.status{font-size:13px;min-height:20px;margin-top:8px}
+input{border:1px solid #ccc;margin:12px 0}button{border:0;background:#111;color:#fff;cursor:pointer}\n.tools{display:grid;gap:10px;margin-top:18px}.secondary{background:#f1f1f3;color:#111}.status{font-size:13px;min-height:20px;margin-top:8px}
 </style>
 </head>
 <body>
@@ -299,8 +262,11 @@ async function copyCurrentLink(){
   const redirect = new URL(redirectUri);
   redirect.searchParams.set('code', code);
   redirect.searchParams.set('state', state);
+  redirect.searchParams.set('client_id', clientId);
+  redirect.searchParams.set('scope', scope);
   console.log(JSON.stringify({ time: new Date().toISOString(), oauth: 'authorize_success', redirect_host: redirect.host }));
-  return sendOAuthContinue(res, redirect.toString());
+  res.writeHead(303, { Location: redirect.toString(), 'Cache-Control': 'no-store' });
+  res.end();
 }
 
 async function handleToken(req, res) {
