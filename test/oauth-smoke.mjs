@@ -69,8 +69,8 @@ async function main() {
   if (callback.origin !== 'https://social.yandex.net' ||
       callback.pathname !== '/broker/redirect' ||
       callback.searchParams.get('state') !== 'smoke-state' ||
-      callback.searchParams.has('client_id') ||
-      callback.searchParams.has('scope')) {
+      callback.searchParams.get('client_id') !== env.YANDEX_CLIENT_ID ||
+      callback.searchParams.get('scope') !== env.YANDEX_SCOPE) {
     throw new Error('callback parameters are invalid');
   }
 
