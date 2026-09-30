@@ -69,7 +69,7 @@ function sendHtml(res, status, html) {
   res.writeHead(status, {
     'Content-Type': 'text/html; charset=utf-8',
     'Cache-Control': 'no-store',
-    'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+    'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
   });
   res.end(html);
 }
@@ -242,6 +242,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:420px;mar
 h1{font-size:24px;margin-bottom:8px}p{color:#555;line-height:1.45}
 input,button{box-sizing:border-box;width:100%;font:inherit;padding:12px;border-radius:10px}
 input{border:1px solid #ccc;margin:12px 0}button{border:0;background:#111;color:#fff;cursor:pointer}
+.tools{display:grid;gap:10px;margin-top:18px}.secondary{background:#f1f1f3;color:#111}.status{font-size:13px;min-height:20px;margin-top:8px}
 </style>
 </head>
 <body>
@@ -256,6 +257,28 @@ input{border:1px solid #ccc;margin:12px 0}button{border:0;background:#111;color:
 <input type="password" name="password" autocomplete="current-password" required autofocus>
 <button type="submit">Подключить к Яндексу</button>
 </form>
+<div class="tools">
+<button type="button" class="secondary" onclick="window.open(window.location.href,'_blank','noopener,noreferrer')">Попробовать открыть в Safari</button>
+<button type="button" class="secondary" onclick="copyCurrentLink()">Скопировать ссылку</button>
+</div>
+<p id="copy-status" class="status"></p>
+<script>
+async function copyCurrentLink(){
+  const status=document.getElementById('copy-status');
+  try{
+    await navigator.clipboard.writeText(window.location.href);
+    status.textContent='Ссылка скопирована';
+  }catch(e){
+    const t=document.createElement('textarea');
+    t.value=window.location.href;
+    document.body.appendChild(t);
+    t.select();
+    document.execCommand('copy');
+    t.remove();
+    status.textContent='Ссылка скопирована';
+  }
+}
+</script>
 </body>
 </html>`);
   }
