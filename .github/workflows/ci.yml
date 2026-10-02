@@ -19,3 +19,4 @@ jobs:
           node-version: 24
       - run: node --check server.js
       - run: node test/oauth-smoke.mjs
+      - run: node test/ops-release-smoke.mjs

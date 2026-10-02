@@ -4,6 +4,7 @@ set -eu
 lock_deploy
 
 VERSION="$(cat "$BASE/runtime/current-version")"
+require_release "$VERSION"
 WEATHER_IMAGE="weather-bridge:$VERSION"
 export WEATHER_IMAGE
 compose restart app
