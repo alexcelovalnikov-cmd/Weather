@@ -1,11 +1,26 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { resolve } from 'node:path';
+import { resolve, join } from 'node:path';
+import { tmpdir } from 'node:os';
 
-// Compose is parsed without reading production env_file. The canary uses only
-// synthetic credentials supplied by oauth-smoke and has no external network.
-const app = JSON.parse(readFileSync(process.argv[2], 'utf8')).services.app;
+// Redirect the exact production env reference to an empty synthetic file before
+// invoking Compose: --no-env-resolution alone still checks file existence.
+const source = readFileSync('deploy/compose.production.yaml', 'utf8');
+const reference = '/opt/weather-bridge/secrets/.env';
+assert.equal(source.split(reference).length, 2, 'expected exactly one known env reference');
+const temporary = mkdtempSync(join(tmpdir(), 'weather-compose-canary-'));
+let app;
+try {
+  const env = join(temporary, 'synthetic.env');
+  const compose = join(temporary, 'compose.yaml');
+  writeFileSync(env, '', { mode: 0o600 });
+  writeFileSync(compose, source.replace(reference, env), { mode: 0o600 });
+  app = JSON.parse(execFileSync('docker', ['compose', '-f', compose, 'config',
+    '--format', 'json'], { encoding: 'utf8', timeout: 15000 })).services.app;
+} finally {
+  rmSync(temporary, { recursive: true, force: true });
+}
 assert.equal(app.user, '1000:1000');
 assert.equal(app.read_only, true);
 assert.deepEqual(app.cap_drop, ['ALL']);
