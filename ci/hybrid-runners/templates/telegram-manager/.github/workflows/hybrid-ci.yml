@@ -1,0 +1,100 @@
+name: Hybrid CI
+run-name: hybrid-${{ inputs.dispatch_id }}
+on:
+  workflow_dispatch:
+    inputs:
+      target_sha:
+        description: Exact source commit (PR merge SHA or branch head)
+        required: true
+        type: string
+      runner:
+        description: Explicit attempt destination selected by coordinator
+        required: true
+        type: choice
+        options: [local-linux, local-mac, github-linux]
+      dispatch_id:
+        description: Coordinator correlation ID
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: hybrid-${{ inputs.target_sha }}-${{ inputs.dispatch_id }}
+  cancel-in-progress: false
+jobs:
+  test:
+    if: github.actor == 'alexcelovalnikov-cmd' && (inputs.runner == 'local-linux' || inputs.runner == 'github-linux')
+    runs-on: ${{ fromJSON(inputs.runner == 'local-linux' && '["self-hosted","Linux","X64","local-linux","hybrid-v1","hybrid-telegram-manager-linux"]' || inputs.runner == 'local-mac' && '["self-hosted","macOS","ARM64","local-mac","hybrid-v1","hybrid-weather-mac"]' || '["ubuntu-latest"]') }}
+    timeout-minutes: 15
+    steps:
+      - name: Validate immutable dispatch
+        shell: bash
+        env:
+          TARGET_SHA: ${{ inputs.target_sha }}
+          DISPATCH_ID: ${{ inputs.dispatch_id }}
+        run: |
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$DISPATCH_ID" =~ ^[0-9a-f]{32}$ ]]
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.target_sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            requirements.lock
+            requirements.v24.txt
+            requirements.calendar.txt
+            requirements.worker.txt
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.lock
+          python -m pip install --constraint requirements.lock -r requirements.v24.txt
+          python -m pip install -r requirements.calendar.txt
+          python -m pip install pytest pytest-asyncio
+
+      - name: Python syntax
+        run: python -m compileall -q tm_api tm_calendar tm_reminders mac worker tests
+
+      - name: Shell syntax
+        run: bash -n deploy/v31/*.sh deploy/ops/*.sh deploy/ops/tmctl-root whatsapp/*.sh
+
+      - name: V31 compose syntax
+        env:
+          TM_PROJECT_NAME: telegram-manager-v31-ci
+          TM_API_IMAGE: telegram-manager:V31
+          TM_CALENDAR_IMAGE: telegram-manager-calendar:V31
+          TM_API_ENV_FILE: /tmp/tm-api.env
+          TM_API_DSN_FILE: /tmp/tm-api-dsn.env
+          TM_CALENDAR_ENV_FILE: /tmp/tm-calendar.env
+          TM_STATE_DIR: /tmp/tm-state
+          TM_DATABASE_NETWORK: telegram-manager_database
+        run: |
+          touch "$TM_API_ENV_FILE" "$TM_API_DSN_FILE" "$TM_CALENDAR_ENV_FILE"
+          mkdir -p "$TM_STATE_DIR"
+          docker compose -f deploy/v31/compose.production.yaml config -q
+
+      - name: Server worker image
+        run: docker build -f Dockerfile.worker -t telegram-manager-worker:ci .
+
+      - name: WhatsApp collector image
+        run: docker build -f Dockerfile.whatsapp -t telegram-manager-whatsapp:ci .
+
+      - name: Python tests
+        run: python -m pytest -q
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+
+      - name: JavaScript tests
+        run: |
+          node --check whatsapp/collector.mjs
+          node --test tests/review_ui.test.js
+          node --test tests/reconciliation_ui.test.js
+          node --test tests/v24/review_ui.test.js

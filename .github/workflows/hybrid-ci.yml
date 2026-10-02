@@ -1,0 +1,46 @@
+name: Hybrid CI
+run-name: hybrid-${{ inputs.dispatch_id }}
+on:
+  workflow_dispatch:
+    inputs:
+      target_sha:
+        description: Exact source commit (PR merge SHA or branch head)
+        required: true
+        type: string
+      runner:
+        description: Explicit attempt destination selected by coordinator
+        required: true
+        type: choice
+        options: [local-linux, local-mac, github-linux]
+      dispatch_id:
+        description: Coordinator correlation ID
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: hybrid-${{ inputs.target_sha }}-${{ inputs.dispatch_id }}
+  cancel-in-progress: false
+jobs:
+  check:
+    if: github.actor == 'alexcelovalnikov-cmd' && (inputs.runner == 'local-linux' || inputs.runner == 'github-linux' || inputs.runner == 'local-mac')
+    runs-on: ${{ fromJSON(inputs.runner == 'local-linux' && '["self-hosted","Linux","X64","local-linux","hybrid-v1","hybrid-weather-linux"]' || inputs.runner == 'local-mac' && '["self-hosted","macOS","ARM64","local-mac","hybrid-v1","hybrid-weather-mac"]' || '["ubuntu-latest"]') }}
+    timeout-minutes: 25
+    steps:
+      - name: Validate immutable dispatch
+        shell: bash
+        env:
+          TARGET_SHA: ${{ inputs.target_sha }}
+          DISPATCH_ID: ${{ inputs.dispatch_id }}
+        run: |
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$DISPATCH_ID" =~ ^[0-9a-f]{32}$ ]]
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.target_sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+      - run: node --check server.js
+      - run: node test/oauth-smoke.mjs

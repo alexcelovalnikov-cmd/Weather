@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+state/
+health/
+config.json
+secrets/
+tools/
+canary/
+audit/
+tests/results.log

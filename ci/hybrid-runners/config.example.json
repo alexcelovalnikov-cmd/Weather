@@ -1,0 +1,136 @@
+{
+  "mode": "AUTO",
+  "poll_seconds": 15,
+  "queue_timeout": 120,
+  "run_timeout": 2400,
+  "health_ttl": 90,
+  "trusted_actors": [
+    "alexcelovalnikov-cmd"
+  ],
+  "hosted": {
+    "allowed": false,
+    "verified_until": 0,
+    "probe": {
+      "enabled": false,
+      "repository": "alexcelovalnikov-cmd/Weather",
+      "workflow": "hybrid-hosted-probe.yml",
+      "cooldown": 900,
+      "ttl": 900
+    }
+  },
+  "repositories": {
+    "alexcelovalnikov-cmd/Weather": {
+      "enabled": false,
+      "workflow": "hybrid-ci.yml",
+      "runtime_ref": "hybrid-runtime-v1",
+      "runtime_sha": "",
+      "branches": [
+        "main",
+        "stage"
+      ],
+      "pr_bases": [
+        "main"
+      ],
+      "routes": [
+        "local-mac",
+        "local-linux",
+        "github-linux"
+      ],
+      "capabilities": [
+        "node24"
+      ],
+      "runner_names": {
+        "local-linux": [
+          "hybrid-weather-linux"
+        ],
+        "local-mac": [
+          "hybrid-weather-mac"
+        ]
+      }
+    },
+    "alexcelovalnikov-cmd/Server-Admin-Controller": {
+      "enabled": false,
+      "workflow": "hybrid-ci.yml",
+      "runtime_ref": "hybrid-runtime-v1",
+      "runtime_sha": "",
+      "branches": [
+        "main"
+      ],
+      "pr_bases": [
+        "main"
+      ],
+      "routes": [
+        "local-linux",
+        "github-linux"
+      ],
+      "capabilities": [
+        "python312",
+        "node22"
+      ],
+      "runner_names": {
+        "local-linux": [
+          "hybrid-server-admin-controller-linux"
+        ],
+        "local-mac": []
+      }
+    },
+    "alexcelovalnikov-cmd/telegram-manager": {
+      "enabled": false,
+      "workflow": "hybrid-ci.yml",
+      "runtime_ref": "hybrid-runtime-v1",
+      "runtime_sha": "",
+      "branches": [
+        "main",
+        "stage"
+      ],
+      "pr_bases": [
+        "main",
+        "stage"
+      ],
+      "routes": [
+        "local-linux",
+        "github-linux"
+      ],
+      "capabilities": [
+        "python312",
+        "node22",
+        "docker-rootless",
+        "compose"
+      ],
+      "runner_names": {
+        "local-linux": [
+          "hybrid-telegram-manager-linux"
+        ],
+        "local-mac": []
+      }
+    },
+    "alexcelovalnikov-cmd/rentrabbit-chatgpt-connector": {
+      "enabled": false,
+      "workflow": "hybrid-ci.yml",
+      "runtime_ref": "hybrid-runtime-v1",
+      "runtime_sha": "",
+      "branches": [
+        "main"
+      ],
+      "pr_bases": [
+        "main"
+      ],
+      "routes": [
+        "local-linux",
+        "github-linux"
+      ],
+      "capabilities": [
+        "python312",
+        "node22",
+        "python39",
+        "docker-rootless"
+      ],
+      "runner_names": {
+        "local-linux": [
+          "hybrid-rentrabbit-chatgpt-connector-linux"
+        ],
+        "local-mac": []
+      }
+    }
+  }
+}
