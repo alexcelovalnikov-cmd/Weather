@@ -14,7 +14,7 @@ const env = {
   YANDEX_LINK_PASSWORD: 'test-password',
   YANDEX_REDIRECT_URI: 'https://social.yandex.net/broker/redirect',
   YANDEX_SCOPE: 'weather:read',
-  YANDEX_USER_ID: 'synthetic-user',
+  USER_ID: 'synthetic-user',
   YANDEX_DIALOGS_SKILL_ID: '',
   YANDEX_DIALOGS_OAUTH_TOKEN: ''
 };
