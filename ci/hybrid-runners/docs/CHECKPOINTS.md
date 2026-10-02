@@ -8,12 +8,15 @@ Merge только canary manual workflow в main; исходный ci.yml и pr
 Runtime credential для четырёх selected private repos:
 Contents read, Pull requests read, Actions write, Commit statuses write,
 Administration read для runners list. Registration token issuer: отдельная Administration write.
-CLI token сейчас не имеет workflow scope; upload через имеющийся GitHub connector проверяется
-отдельно и не требует передачи PAT в чат. Секреты предоставлять только локальному secure storage.
+CLI token сейчас не имеет workflow scope. Upload через имеющийся GitHub connector проверен:
+draft Weather PR3 создан, mergeable, без изменений исходного CI. Новый OAuth для этого upload
+не нужен. Секреты runtime/registration предоставлять только локальному secure storage.
 
 ## C2 — Mac canary registration
 
-Подтвердить запуск в отдельной disposable macOS ARM64 VM на Mac; не в личном aleks account.
+Подтвердить подготовку отдельной disposable macOS ARM64 VM на Mac; не в личном aleks account.
+VM-среда на текущем Mac не обнаружена; её выбор/установка и privileged host setup входят
+в данный checkpoint и не выполнялись автоматически.
 Guest: runner user без admin/sudo, без shared home, SSH keys, Obsidian, production credentials,
 host directories и native connector tokens. Image с Node24 + bash + Git + исходящей HTTPS.
 Рабочая ёмкость один job, max25min. Runner label/name hybrid-weather-mac.

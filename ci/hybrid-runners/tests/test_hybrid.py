@@ -175,6 +175,10 @@ class BrokerTests(unittest.TestCase):
   self.c['hosted']={'allowed':False,'verified_until':0}
   self.assertTrue(probe.effective_config(self.b)['hosted']['allowed'])
   self.now=1002;self.assertFalse(probe.effective_config(self.b)['hosted']['allowed'])
+ def test_inflight_nonce_reconciles_after_runtime_upgrade(self):
+  self.dispatch()
+  self.c['repositories'][REPO]['runtime_sha']='c'*40
+  found=self.b.find_run(self.task());self.assertEqual(found['id'],10)
  def test_read_only_baseline_no_backfill(self):
   self.b.discover();self.assertFalse(self.api.writes)
 

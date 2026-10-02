@@ -1,6 +1,8 @@
 # GitHub Hybrid Runners V1
 
-Подготовлена локальная реализация и read-only аудит. Система **не активирована**:
+Подготовлены реализация, read-only аудит и [draft canary PR3](https://github.com/alexcelovalnikov-cmd/Weather/pull/3).
+Общий пакет находится в Weather `ci/hybrid-runners/`, templates остальных repo не активированы.
+Система **не активирована**:
 все repositories.enabled=false, hosted fallback выключен, runners=0.
 Canary — Weather; следующие этапы требуют инфраструктурных checkpoints и live E2E.
 

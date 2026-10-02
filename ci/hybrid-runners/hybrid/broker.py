@@ -25,12 +25,14 @@ class Broker:
           PRAGMA journal_mode=WAL;
           CREATE TABLE IF NOT EXISTS tasks (
             id TEXT PRIMARY KEY, repo TEXT, sha TEXT, trusted INTEGER, source TEXT,
-            state TEXT, attempted TEXT DEFAULT '[]', route TEXT, host TEXT,
+            state TEXT, attempted TEXT DEFAULT '[]', route TEXT, host TEXT, runtime_sha TEXT,
             nonce TEXT, run_id INTEGER, dispatched REAL, updated REAL, reason TEXT,
             UNIQUE(repo,sha));
           CREATE TABLE IF NOT EXISTS cursors (key TEXT PRIMARY KEY, sha TEXT);
           CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
         ''')
+        if 'runtime_sha' not in {r['name'] for r in self.db.execute('PRAGMA table_info(tasks)')}:
+            self.db.execute('ALTER TABLE tasks ADD COLUMN runtime_sha TEXT');self.db.commit()
 
     def log(self, event, **fields):
         print(json.dumps({'at':timestamp(),'event':event,**fields}),flush=True)
@@ -122,7 +124,7 @@ class Broker:
         self.status(task,'pending',f'{candidate.route}: dispatch planned')
         # Persist intent BEFORE HTTP write. Unknown dispatch outcome is never blindly retried.
         self.update(task,state='dispatching',route=candidate.route,host=candidate.host_id,nonce=nonce,
-                    run_id=None,dispatched=self.clock(),attempted=json.dumps(attempted+[candidate.route]))
+                    run_id=None,dispatched=self.clock(),runtime_sha=policy['runtime_sha'],attempted=json.dumps(attempted+[candidate.route]))
         self.log('dispatch',task=task['id'],route=candidate.route,nonce=nonce)
         self.api.post(f'/repos/{task["repo"]}/actions/workflows/{policy["workflow"]}/dispatches',
             {'ref':policy['runtime_ref'],'inputs':{'target_sha':task['sha'],
@@ -133,7 +135,7 @@ class Broker:
         # Exact random run-name correlation; never select by latest run/branch alone.
         runs=self.api.pages(f'/repos/{task["repo"]}/actions/workflows/{policy["workflow"]}/runs?event=workflow_dispatch','workflow_runs')
         matches=[r for r in runs if r.get('display_title')=='hybrid-'+task['nonce']
-                 and r['head_sha']==policy['runtime_sha']]
+                 and r['head_sha']==(task['runtime_sha'] or policy['runtime_sha'])]
         if len(matches)>1:raise APIError('duplicate dispatch correlation; operator intervention required')
         return matches[0] if matches else None
 

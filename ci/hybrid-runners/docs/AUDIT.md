@@ -18,7 +18,9 @@ Weather branch protection API возвращает 403 upgrade required; обя�
 
 Последние TM, SAC, RR annotations: job was not started because recent account payments
 have failed or spending limit needs to be increased. Это billing evidence, не ошибка тестов.
-Weather предыдущие runs успешны; текущая hosted доступность пока UNKNOWN и выключена по умолчанию.
+Weather предыдущие runs успешны; новый CI draft PR3 тоже заблокирован оплатой до начала шагов:
+https://github.com/alexcelovalnikov-cmd/Weather/actions/runs/36984852043
+Текущая hosted доступность BLOCKED; fallback/probe выключены по умолчанию.
 GitHub billing API не считается достоверным boolean: доступ к runner подтверждает probe,
 затем разрешение fallback имеет ограниченный TTL и сбрасывается billing annotation.
 
@@ -30,7 +32,9 @@ Isolated TM/RR filesystem policy managed; Weather staging-only management, runti
 Для CI нужна отдельная VM с лимитами, собственным rootless Docker daemon и без /opt production.
 Прямой доступ к production Docker равнозначен root и в проект не включается.
 
-Mac ARM64, macOS27.0.1; Node доступен; docker/actionlint не найдены. Runner не зарегистрирован.
+Mac ARM64, macOS27.0.1; Node24.21.0 доступен; Docker не установлен. Runner не зарегистрирован.
+UTM/Parallels/VMware/VirtualBuddy/OrbStack/Docker.app и tart/limactl/multipass не обнаружены.
+Actionlint1.7.12 скачан в локальную tools/ с проверкой официального checksum для validation.
 SAC не имеет typed runner-install capability. Установка runner не маскируется под deploy:
 подготовлен runbook с отдельным infrastructure checkpoint, root console не использовалась.
 
