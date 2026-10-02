@@ -40,15 +40,15 @@ if any(work.iterdir()):p.error('fresh empty VM workdir required; registration is
 try:
  extract_runner(archive,work)
 except ValueError as e:p.error(str(e))
-# config.sh supports RUNNER_INPUT_*; stdin token cannot appear in process command lines.
+# Runner.Listener supports ACTIONS_RUNNER_INPUT_*; stdin token cannot appear in process command lines.
 token=sys.stdin.readline().strip()
 if not token:p.error('one-time registration token required on stdin')
-env=os.environ.copy()
+env={k:v for k,v in os.environ.items() if not k.startswith('ACTIONS_RUNNER_INPUT_')}
 for key in ('GH_TOKEN','GITHUB_TOKEN','GITHUB_PAT'):env.pop(key,None)
-env.update({'RUNNER_INPUT_TOKEN':token})
+env.update({'ACTIONS_RUNNER_INPUT_TOKEN':token})
 args=['./config.sh','--unattended','--ephemeral','--url','https://github.com/'+a.repo,
       '--name',a.name,'--labels',a.route+',hybrid-v1,'+a.name,'--work','_work']
 r=subprocess.run(args,cwd=work,env=env,capture_output=True,text=True)
-env.pop('RUNNER_INPUT_TOKEN',None);token=''
+env.pop('ACTIONS_RUNNER_INPUT_TOKEN',None);token=''
 if r.returncode:raise SystemExit('Registration failed; inspect protected VM diagnostics; no automatic retry')
 print(json.dumps({'registered':True,'name':a.name,'ephemeral':True,'next':'./run.sh inside disposable VM, then destroy/reset VM'}))
