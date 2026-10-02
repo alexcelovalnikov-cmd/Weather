@@ -1,0 +1,7 @@
+{
+  "overlays/rentrabbit-chatgpt-connector/.github/workflows/hybrid-ci.yml": "24eda95fbaef05e798cd277136a3649664eac16ae04944653ec7e47d3d34fb86",
+  "overlays/telegram-manager/.github/workflows/hybrid-ci.yml": "9e8df1df497c5fd7230ceb24de8a1ce08306377ad43507fc92edeba8de214e34",
+  "overlays/Server-Admin-Controller/.github/workflows/hybrid-ci.yml": "31fb54d7a43da78565933a74bf2eecb9c7eaafc6dc35000f143b7be84743326f",
+  "overlays/Weather/.github/workflows/hybrid-hosted-probe.yml": "fd127ce7b0566eb204beb5fc636017cd63ef2ce6e1a9883ee496a16483217a73",
+  "overlays/Weather/.github/workflows/hybrid-ci.yml": "89195ff7ddbf5348981436179a30b728955478fad3c11fe927ee46ecad3f3531"
+}

@@ -1,0 +1,130 @@
+name: Hybrid CI
+run-name: hybrid-${{ inputs.dispatch_id }}
+on:
+  workflow_dispatch:
+    inputs:
+      target_sha:
+        description: Exact source commit (PR merge SHA or branch head)
+        required: true
+        type: string
+      runner:
+        description: Explicit attempt destination selected by coordinator
+        required: true
+        type: choice
+        options: [local-linux, local-mac, github-linux]
+      dispatch_id:
+        description: Coordinator correlation ID
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: hybrid-${{ inputs.target_sha }}-${{ inputs.dispatch_id }}
+  cancel-in-progress: false
+jobs:
+  test:
+    if: github.actor == 'alexcelovalnikov-cmd' && (inputs.runner == 'local-linux' || inputs.runner == 'github-linux')
+    runs-on: ${{ fromJSON(inputs.runner == 'local-linux' && '["self-hosted","Linux","X64","local-linux","hybrid-v1","hybrid-server-admin-controller-linux"]' || inputs.runner == 'local-mac' && '["self-hosted","macOS","ARM64","local-mac","hybrid-v1","hybrid-weather-mac"]' || '["ubuntu-latest"]') }}
+    timeout-minutes: 25
+    steps:
+      - name: Validate immutable dispatch
+        shell: bash
+        env:
+          TARGET_SHA: ${{ inputs.target_sha }}
+          DISPATCH_ID: ${{ inputs.dispatch_id }}
+        run: |
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$DISPATCH_ID" =~ ^[0-9a-f]{32}$ ]]
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.target_sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - name: Python syntax
+        run: python -m py_compile server_admin/controller.py server_admin/health.py server_admin/maintenance_root.py
+      - name: Shell and client bootstrap smoke
+        run: |
+          bash -n install/install.sh
+          bash -n client/server-admin-client-bootstrap
+          tmp="$(mktemp -d)"
+          HOME="$tmp" bash client/server-admin-client-bootstrap prepare demo-project demo-project-server demo-project 127.0.0.1
+          HOME="$tmp" bash client/server-admin-client-bootstrap prepare demo-project demo-project-server demo-project 127.0.0.1
+          test "$(grep -c '^# BEGIN Server Admin Controller: demo-project$' "$tmp/.ssh/config")" -eq 1
+          rm -rf "$tmp"
+      - name: Unit tests
+        run: python -m unittest discover -s tests -v
+      - name: Plugin install and syntax
+        run: |
+          cd plugin
+          npm ci
+          node --check server.js
+      - name: Plugin stdio smoke
+        run: |
+          cd plugin
+          node smoke-stdio.mjs
+      - name: Production incident handoff smoke
+        run: |
+          cd plugin
+          node smoke-incidents.mjs
+      - name: Desktop Commander client access smoke
+        run: |
+          cd plugin
+          node smoke-client-access.mjs
+      - name: Self-development progress smoke
+        run: |
+          cd plugin
+          node smoke-self-progress.mjs
+      - name: Correlated observability smoke
+        run: |
+          cd plugin
+          node smoke-observability.mjs
+      - name: Release regression smoke
+        run: |
+          cd plugin
+          node smoke-release-regression.mjs
+      - name: Approved remediation smoke
+        run: |
+          cd plugin
+          node smoke-remediation.mjs
+      - name: Credential expiry smoke
+        run: |
+          cd plugin
+          node smoke-credential-expiry.mjs
+      - name: Plugin startup smoke
+        run: |
+          cd plugin
+          PORT=18787 SAC_SERVERCTL=/bin/false node server.js >/tmp/sac-plugin.log 2>&1 &
+          pid=$!
+          trap 'kill $pid 2>/dev/null || true' EXIT
+          sleep 1
+          curl -fsS http://127.0.0.1:18787/
+          SAC_SMOKE_URL=http://127.0.0.1:18787/mcp node smoke.mjs
+          grep -q "Server Admin Controller MCP listening" /tmp/sac-plugin.log
+      - name: OAuth migration smoke
+        run: |
+          cd plugin
+          node smoke-oauth-migration.mjs
+      - name: Plugin OAuth smoke
+        run: |
+          cd plugin
+          rm -f /tmp/sac-oauth-state.json /tmp/server-admin-owner-token-smoke /tmp/sac-progress-smoke.json
+          SAC_OAUTH_ENABLED=1 \
+          SAC_PUBLIC_URL=https://example.test/server-admin \
+          SAC_OAUTH_STATE=/tmp/sac-oauth-state.json \
+          SAC_OWNER_TOKEN_FILE=/tmp/server-admin-owner-token-smoke \
+          SAC_PLUGIN_STATE=/tmp/sac-progress-smoke.json \
+          SAC_SERVERCTL=/bin/false \
+          PORT=18788 \
+          node server.js >/tmp/sac-plugin-oauth.log 2>&1 &
+          pid=$!
+          trap 'kill $pid 2>/dev/null || true' EXIT
+          sleep 1
+          SAC_OAUTH_SMOKE_BASE=http://127.0.0.1:18788 \
+          SAC_OAUTH_PUBLIC_URL=https://example.test/server-admin \
+          SAC_OWNER_TOKEN_FILE=/tmp/server-admin-owner-token-smoke \
+          node smoke-oauth.mjs

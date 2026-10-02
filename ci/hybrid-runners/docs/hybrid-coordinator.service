@@ -1,0 +1,29 @@
+[Unit]
+Description=GitHub hybrid CI coordinator (no job execution)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ci-coordinator
+Group=ci-coordinator
+WorkingDirectory=/opt/ci-coordinator/code
+ExecStart=/usr/bin/python3 -m hybrid.broker --config /opt/ci-coordinator/config.json --state /opt/ci-coordinator/state/broker.sqlite --health /opt/ci-coordinator/health
+Restart=on-failure
+RestartSec=15
+LoadCredential=github-token:/opt/ci-coordinator/secrets/github-token
+# Start wrapper reads credential into GH_TOKEN; never attach this directory to workers.
+ExecStart=
+ExecStart=/opt/ci-coordinator/code/scripts/start-coordinator.sh
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/ci-coordinator/state
+MemoryMax=256M
+CPUQuota=10%
+UMask=0077
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target

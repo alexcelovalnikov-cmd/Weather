@@ -1,0 +1,18 @@
+name: Hosted availability probe
+run-name: hybrid-probe-${{ inputs.dispatch_id }}
+on:
+  workflow_dispatch:
+    inputs:
+      dispatch_id:
+        description: Coordinator correlation ID
+        required: true
+        type: string
+permissions: {}
+jobs:
+  probe:
+    if: github.actor == 'alexcelovalnikov-cmd'
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - name: Hosted compute available
+        run: echo hosted-probe-ok
