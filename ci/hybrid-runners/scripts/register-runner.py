@@ -15,6 +15,8 @@ import sys
 import tarfile
 import tempfile
 import urllib.request
+sys.path.insert(0,str(pathlib.Path(__file__).resolve().parents[1]))
+from hybrid.archive import extract_runner
 
 p=argparse.ArgumentParser()
 p.add_argument('--repo',required=True);p.add_argument('--route',choices=['local-linux','local-mac'],required=True)
@@ -35,11 +37,9 @@ if hashlib.sha256(archive.read_bytes()).hexdigest()!=a.sha256:p.error('archive c
 work=pathlib.Path(a.workdir).resolve()
 work.mkdir(parents=True,exist_ok=True,mode=0o700)
 if any(work.iterdir()):p.error('fresh empty VM workdir required; registration is never repeated blindly')
-with tarfile.open(archive) as tf:
- for m in tf.getmembers():
-  target=(work/m.name).resolve()
-  if not target.is_relative_to(work) or m.isdev() or m.issym() or m.islnk():p.error('unsafe archive member')
- tf.extractall(work)
+try:
+ extract_runner(archive,work)
+except ValueError as e:p.error(str(e))
 # config.sh supports RUNNER_INPUT_*; stdin token cannot appear in process command lines.
 token=sys.stdin.readline().strip()
 if not token:p.error('one-time registration token required on stdin')
