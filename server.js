@@ -114,7 +114,7 @@ function bearerPayload(req) {
 
 function requireAuth(req, res) {
   const token = bearerPayload(req);
-  if (!token || token.sub !== cfg.userId) {
+  if (!token || token.sub !== cfg.userId || token.scope !== cfg.scope) {
     sendJson(res, 401, { error: 'unauthorized' });
     return null;
   }

@@ -1,4 +1,6 @@
 import { spawn } from 'node:child_process';
+import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 
 const port = 18877;
 const base = `http://127.0.0.1:${port}`;
@@ -11,7 +13,10 @@ const env = {
   TOKEN_SECRET: 'test-token-secret-0123456789',
   YANDEX_LINK_PASSWORD: 'test-password',
   YANDEX_REDIRECT_URI: 'https://social.yandex.net/broker/redirect',
-  YANDEX_SCOPE: 'weather:read'
+  YANDEX_SCOPE: 'weather:read',
+  YANDEX_USER_ID: 'synthetic-user',
+  YANDEX_DIALOGS_SKILL_ID: '',
+  YANDEX_DIALOGS_OAUTH_TOKEN: ''
 };
 
 const child = spawn(process.execPath, ['server.js'], {
@@ -95,6 +100,31 @@ async function main() {
   if (!tokens.access_token || !tokens.refresh_token || tokens.scope !== env.YANDEX_SCOPE) {
     throw new Error('token exchange failed');
   }
+
+  const replayResponse = await fetch(base + '/oauth/token', {
+    method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: tokenBody
+  });
+  assert.equal(replayResponse.status, 400, 'authorization code is one use');
+  for (const access of ['', 'invalid', ...[
+    {type:'access',sub:'synthetic-user',scope:'weather:write',exp:Math.floor(Date.now()/1000)+60},
+    {type:'access',sub:'other-user',scope:'weather:read',exp:Math.floor(Date.now()/1000)+60},
+    {type:'access',sub:'synthetic-user',scope:'weather:read',exp:1}
+  ].map(payload => {
+    const body=Buffer.from(JSON.stringify(payload)).toString('base64url');
+    return body+'.'+crypto.createHmac('sha256',env.TOKEN_SECRET).update(body).digest('base64url');
+  })]) {
+    const response=await fetch(base+'/v1.0/user/devices/action', {
+      method:'POST',headers:{authorization:'Bearer '+access,'content-type':'application/json'},
+      body:JSON.stringify({devices:[{id:'synthetic-device',capabilities:[{state:{value:true}}]}]})
+    });
+    assert.equal(response.status,401,'invalid subject/scope/expiry must be denied');
+  }
+  const actionResponse=await fetch(base+'/v1.0/user/devices/action', {
+    method:'POST',headers:{authorization:'Bearer '+tokens.access_token,'content-type':'application/json'},
+    body:JSON.stringify({devices:[{id:'synthetic-device',capabilities:[{state:{value:true}}]}]})
+  });
+  assert.equal(actionResponse.status,200);
+  assert.equal((await actionResponse.json()).payload.devices[0].action_result.error_code,'INVALID_ACTION');
 
   const refreshBody = new URLSearchParams({
     grant_type: 'refresh_token',
