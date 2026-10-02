@@ -13,7 +13,7 @@ Weather branch protection API возвращает 403 upgrade required; обя�
 | telegram-manager | import-source.yml | bootstrap push, contents:write, commit/push main/stage; исключён |
 | Server-Admin-Controller | ci.yml, push/PR main | Python3.12 + Node22, Linux filesystem/client smoke; Linux only до отдельной Mac квалификации |
 | rentrabbit-chatgpt-connector | tests.yml, push/PR | Python3.9/3.12 matrix + Docker build/run --network none; Linux only |
-| rentrabbit-chatgpt-connector | apply-v2-stage.yml (API listing) | отсутствует в main tree и stage ref 404; stale/неаудируемый mutation workflow, исключён |
+| rentrabbit-chatgpt-connector | apply-v2-stage.yml (API listing) | отсутствует в main tree и stage ref404; исторический source прочитан по последнему run SHA, mutation workflow исключён |
 | Weather | ci.yml, push main/stage, PR main | Node24 syntax + OAuth offline smoke; Mac ARM64 кандидат canary |
 
 Последние TM, SAC, RR annotations: job was not started because recent account payments
@@ -43,3 +43,9 @@ get_capacity, list_projects, get_control_plane_status, get_client_contract.
 GitHub docs: https://docs.github.com/en/actions/reference/runners/self-hosted-runners
 https://docs.github.com/en/actions/how-tos/manage-runners/self-hosted-runners/manage-access
 https://docs.github.com/en/actions/reference/security/secure-use
+
+Исторический apply-v2-stage восстановлен read-only по run36544355130, stage,
+SHA8fafcf0ae8f9627d3de3b7d671c019bfaa10cfd0. Push stage при изменении .stage/V2.patch.xz:
+применяет patch, удаляет patch/свой workflow, запускает Python3.9/3.12 и Docker acceptance,
+затем commit/push HEAD:stage с contents:write. Это изменение исходников, не production deploy;
+в routing allowlist не включён. Snapshot audit/rentrabbit-chatgpt-connector/orphan-apply-v2-stage.yml.
