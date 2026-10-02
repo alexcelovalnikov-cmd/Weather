@@ -112,6 +112,8 @@ class Broker:
             attempted=list(set(attempted+['github-linux']))
         leased=[r['host'] for r in self.db.execute("SELECT host FROM tasks WHERE state IN ('dispatching','active','cancelling')")]
         runners=self.api.pages(f'/repos/{task["repo"]}/actions/runners','runners')
+        if 'direct_mac_approved_shas' in policy and task['sha'] not in policy['direct_mac_approved_shas']:
+            policy={**policy,'routes':[r for r in policy['routes'] if r!='local-mac']}
         candidate=choose(probe.effective_config(self),policy,runners,self.health(),attempted,
                          bool(task['trusted']),leased,self.clock())
         if not candidate:

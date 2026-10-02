@@ -34,7 +34,12 @@ for arg in "$@"; do [[ "$arg" != "unit-test-one-time-token" ]]; done
          '--name',name,'--archive',str(archive),'--sha256',sha,'--workdir',str(root/'work'),
          '--approved-disposable-vm']
    env={**os.environ,'GH_TOKEN':'fake-parent-credential','GITHUB_TOKEN':'fake-parent-credential'}
-   r=subprocess.run(args,input=token+'\n',capture_output=True,text=True,env=env)
-   self.assertEqual(r.returncode,0,r.stderr)
-   self.assertTrue(json.loads(r.stdout)['registered'])
-   self.assertNotIn(token,r.stdout+r.stderr)
+   approvals=['--approved-disposable-vm']
+   if route=='local-mac':approvals.append('--approved-direct-mac')
+   for index,flag in enumerate(approvals):
+    with self.subTest(approval=flag):
+     attempt=args[:-1]+[flag];attempt[attempt.index('--workdir')+1]=str(root/('work'+str(index)))
+     r=subprocess.run(attempt,input=token+'\n',capture_output=True,text=True,env=env)
+     self.assertEqual(r.returncode,0,r.stderr)
+     self.assertTrue(json.loads(r.stdout)['registered'])
+     self.assertNotIn(token,r.stdout+r.stderr)

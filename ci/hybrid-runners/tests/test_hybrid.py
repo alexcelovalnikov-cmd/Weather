@@ -150,6 +150,12 @@ class BrokerTests(unittest.TestCase):
  def test_no_capacity_fails_without_dispatch(self):
   self.c['mode']='LOCAL';self.api.runners=[];self.b.dispatch(self.task())
   self.assertEqual(self.task()['state'],'blocked');self.assertFalse(any(p.endswith('/dispatches') for p,_ in self.api.writes))
+ def test_direct_mac_unreviewed_source_routes_to_verified_hosted(self):
+  self.c['repositories'][REPO]['direct_mac_approved_shas']=[]
+  self.b.dispatch(self.task());self.assertEqual(self.task()['route'],'github-linux')
+ def test_direct_mac_reviewed_source_can_use_mac(self):
+  self.c['repositories'][REPO]['direct_mac_approved_shas']=[SHA]
+  self.b.dispatch(self.task());self.assertEqual(self.task()['route'],'local-mac')
  def test_new_pr_after_baseline_is_enqueued_untrusted(self):
   self.c['repositories'][REPO]['pr_bases']=['main']
   self.b.discover()
