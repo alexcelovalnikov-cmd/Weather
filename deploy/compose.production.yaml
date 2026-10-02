@@ -5,6 +5,11 @@ services:
     image: ${WEATHER_IMAGE:-weather-bridge:V2}
     container_name: weather-bridge-app
     restart: unless-stopped
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 128
     env_file:
       - /opt/weather-bridge/secrets/.env
     ports:

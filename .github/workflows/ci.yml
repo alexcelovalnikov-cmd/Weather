@@ -20,3 +20,9 @@ jobs:
       - run: node --check server.js
       - run: node test/oauth-smoke.mjs
       - run: node test/ops-release-smoke.mjs
+      - name: Isolated container security canary
+        run: |
+          docker build -t weather-security-canary .
+          docker compose -f deploy/compose.production.yaml config --no-env-resolution \
+            --format json > /tmp/weather-canary-compose.json
+          node test/run-container-canary.mjs /tmp/weather-canary-compose.json
