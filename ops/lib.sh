@@ -34,7 +34,19 @@ compose() {
 
 require_release() {
   VERSION="$1"
-  [ -d "$BASE/releases/$VERSION" ] || {
+  case "$VERSION" in
+    V*) ;;
+    *) echo "Invalid release version" >&2; exit 2 ;;
+  esac
+  case "${VERSION#V}" in
+    ''|*[!0-9]*) echo "Invalid release version" >&2; exit 2 ;;
+  esac
+  [ "${#VERSION}" -le 16 ] || {
+    echo "Invalid release version" >&2
+    exit 2
+  }
+  [ ! -L "$BASE/releases" ] && [ ! -L "$BASE/releases/$VERSION" ] && \
+    [ -d "$BASE/releases/$VERSION" ] || {
     echo "Release not found: $VERSION" >&2
     exit 2
   }
@@ -42,6 +54,7 @@ require_release() {
 
 ensure_image() {
   VERSION="$1"
+  require_release "$VERSION"
   IMAGE="weather-bridge:$VERSION"
   if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
     docker build -t "$IMAGE" "$BASE/releases/$VERSION"
